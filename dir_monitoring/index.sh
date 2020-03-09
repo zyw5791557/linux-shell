@@ -7,14 +7,14 @@ function readINI () {
   Key=$1
   Section=$2
   Config=$3
-  RESULT=`awk -F ' = ' '/\['$Section'\]/{a=1}a==1&&$1~/'$Key'/{print $2;exit}' $Config`
+  RESULT=`awk -F '=' '/\['$Section'\]/{a=1}a==1&&$1~/'$Key'/{print $2;exit}' $Config`
   echo $RESULT
 }
 
 ############ 参数加载
 
 # 参数源
-ConfigFile=$1config.ini
+ConfigFile=$1
 
 # 监控目录
 monitoring_dir=$(readINI monitoring_dir DIR ${ConfigFile})
@@ -47,27 +47,29 @@ echo 目录总大小为：$(sudo du -sh${size_unit} ${monitoring_dir} | cut -f 1
 
 # 若改变单位需要修改这里的 size_unit 参数
 dir_size=($(sudo du -sh${size_unit} ${monitoring_dir}* | sort -nr | cut -f 1 | xargs))
+
 # 获取目录
-dir_name_middle=$(sudo du -sh ${monitoring_dir}* | sort -nr | cut -f 2 | xargs)
-# 目录前缀处理
-dir_name=(${dir_name_middle//${monitoring_dir}/})
+dir_name_middle=($(sudo du -sh${size_unit} ${monitoring_dir}* | sort -nr | cut -f 2 | xargs))
 
 echo 资源监控情况如下：
 
-for (( i=0;i<${#dir_name[*]};i++ ))
+for (( i=0;i<${#dir_name_middle[*]};i++ ))
 do
 
+# 字符串截取 | 获取当前文件夹名称
+dir_name=${dir_name_middle[$i]#*${monitoring_dir}}
+
 # 从参数源里获取用户单独的目录限制 | 若没有配置则为空
-user_limit=$(readINI ${dir_name[$i]} SIZE_LIMIT ${ConfigFile})
+user_limit=$(readINI ${dir_name} SIZE_LIMIT ${ConfigFile})
 # 用三元表达式计算真实的用户目录限制
 size_limit=$((user_limit ? user_limit : normal_size_limit))
 
-echo ${dir_name[$i]}:${dir_size[$i]}:$size_limit >> $full_monitoring_log
-echo ${dir_name[$i]}:${dir_size[$i]}:$size_limit
+echo ${dir_name}:${dir_size[$i]}:$size_limit >> $full_monitoring_log
+echo ${dir_name}:${dir_size[$i]}:$size_limit
 
 # 判断是否超过限制
 if (( ${dir_size[$i]} > $size_limit )); then
-  echo ${dir_name[$i]}:${dir_size[$i]}:$size_limit >> $limit_monitoring_log
+  echo ${dir_name}:${dir_size[$i]}:$size_limit >> $limit_monitoring_log
 fi
 
 done
